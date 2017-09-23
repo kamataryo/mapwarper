@@ -351,7 +351,7 @@ en:
       click_news: click here to read this story
       create_layer: Create a new mosaic
       # info_contact: Mail me at tim@geothings.net for more information!
-      info_contact: ""
+      info_contact: "<h2>Contact</h2><span>Keiji Yano<br />Geography Department<br />Ritsumeikan University<br />(yano@lt.ritsumei.ac.jp）</span>"
       info_header: About Map Warper
       info_paragraph_html: This tool is a Japanese instance of Map Warper, an open source georeferencing application. Map Warper is developed by Tim Waters, who is a geospatial developer and consultant, in response to the promotion of digital publishing of maps in Western countries and the increasing need for georeferncing software. We localize it and provide this Japanese version of Map Warper here, to promote free web-based georeferencing tools in Japan, supported by JSPS KAKENHI (16H01965, 17H06186).
       more: read more

@@ -353,7 +353,7 @@ ja:
       click_news: クリックしてこの話を読む
       create_layer: "新しいモザイクを作成する"
       # info_contact: "お問い合わせは私のeメールアドレス tim@geothings.net まで！"
-      info_contact: ""
+      info_contact: "<h2>連絡先</h2><span>立命館大学文学部地理学教室 矢野桂司<br />（yano@lt.ritsumei.ac.jp）</span>"
       # info_header: どういうものなの？
       info_header: Map Warper について
       # info_paragraph_html: "地図の変形・整形や画像のジオレファレンスを行う、無料のオープンソースソフトウェアです。このプロジェクトは<a href='http://topomancy.com'>Topomancy LLC</a>と<a href='http://maps.nypl.org'>ニューヨーク公共図書館</a>の助成を受けて<a href='https://twitter.com/tim_waters'>Tim Waters</a>が開発、ホスト、メンテナンスしています。"
