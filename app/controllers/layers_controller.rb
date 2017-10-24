@@ -43,7 +43,7 @@ class LayersController < ApplicationController
     sort_init 'updated_at'
     sort_update
 
-    extents = [-74.1710,40.5883,-73.4809,40.8485] #NYC
+    extents = [118.789,19.187,157.783,51.563] #JAPAN
     #extents = [4.4105, 52.092, 4.554, 52.229] #leiden
 
     if params[:place] && !params[:place].blank?
