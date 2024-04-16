@@ -18,9 +18,9 @@
     <%= t('.wms') %>: <%= link_to(t('.wms_link'), url_for(wms_map_url(:id=>@map, :request => "GetCapabilities", :service => "WMS", :version => "1.1.1")) )%>
     (<%= link_to t('.josm_link'), josm_url %>    )
   </li>
-  <li>
-    <% tile_url = "#{tile_map_base_url(:id => @map.id)}/{z}/{x}/{y}.png" %>
-    <%= t('.tiles') %>: <%= tile_url %>
+    <li>
+    <% https_tile_url = "https://mapwarper.h-gis.jp/maps/tile/#{@map.id}/{z}/{x}/{y}.png" %>
+    <%= t('.tiles') %>: <%= https_tile_url %>
   </li>
 </ul>
 <%= t('.bibliographic_header') %>
@@ -34,3 +34,10 @@
 <ul>
   <li><%= t('.gcp_csv') %>: <%= link_to t('.gcp_csv_link'), gcps_map_url(@map, :format=>:csv) %> </li>
 </div>
+
+<script>
+	setTimeout(() => {
+		document.querySelectorAll('a[href^="http://mapwarper.h-gis.jp"]')
+			.forEach(anchor => (anchor.href = anchor.href.replace(/^http:\/\//, 'https://')))
+	}, 500)
+</script>

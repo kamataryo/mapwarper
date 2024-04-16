@@ -141,7 +141,7 @@ def index
   bbox_conditions = nil
   sort_geo = nil
     
-  #extents = [118.789,19.187,157.783,51.563] #JAPAN
+  extents = [118.789,19.187,157.783,51.563] #JAPAN
   if params[:bbox] && params[:bbox].split(',').size == 4
     extents  = nil
     begin

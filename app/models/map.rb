@@ -130,7 +130,9 @@ class Map < ActiveRecord::Base
   #this gets the upload, detects what it is, and converts to a tif, if necessary.
   #Although an uploaded tif with existing geo fields may confuse things
   def setup_image
+    require 'fileutils'
     logger.info "setup_image "
+
     self.filename = upload.original_filename
     save!
     if self.upload?
@@ -156,7 +158,9 @@ class Map < ActiveRecord::Base
       
       tiffed_filename = (orig_ext == ".tif" || orig_ext == ".tiff")? self.upload_file_name : self.upload_file_name + ".tif"
       tiffed_file_path = File.join(maps_dir , tiffed_filename)
-      
+      tiff_temp_dir = Dir.mktmpdir()
+      tiff_temp_path = File.join(tiff_temp_dir, tiffed_filename)
+
       logger.info "We convert to tiff"
 
       #for those greyscale or lack and white images with one band
@@ -169,14 +173,18 @@ class Map < ActiveRecord::Base
       if raster_bands_count(self.upload.path) == 4 && orig_ext == ".png"
         bands = "-b 1 -b 2 -b 3"
       end
+
+      whoami_stdin, whoami_stdout, whoami_stderr = Open3::popen3( 'whoami' )
+      logger.info 'kamataryo'
+      logger.info whoami_stdout.readlines.to_s
       
-      command  = "#{GDAL_PATH}gdal_translate #{self.upload.path} #{outsize} #{bands} -co COMPRESS=DEFLATE -co PHOTOMETRIC=RGB -co PROFILE=BASELINE #{tiffed_file_path}"
+      command  = "#{GDAL_PATH}gdal_translate #{self.upload.path} #{outsize} #{bands} -co COMPRESS=DEFLATE -co PHOTOMETRIC=RGB -co PROFILE=BASELINE #{tiff_temp_path}"
       logger.info command
       ti_stdin, ti_stdout, ti_stderr =  Open3::popen3( command )
       logger.info ti_stdout.readlines.to_s
       logger.info ti_stderr.readlines.to_s
       
-      command = "#{GDAL_PATH}gdaladdo -r average #{tiffed_file_path} 2 4 8 16 32 64"
+      command = "#{GDAL_PATH}gdaladdo -r average #{tiff_temp_path} 2 4 8 16 32 64"
       o_stdin, o_stdout, o_stderr = Open3::popen3(command)
       logger.info command
       
@@ -188,6 +196,14 @@ class Map < ActiveRecord::Base
       end
       
       self.filename = tiffed_filename
+
+      # copy from temp
+      FileUtils.mv tiff_temp_path, tiffed_file_path
+      
+      # now delete the tempfile
+      if Dir.exists?(tiff_temp_dir)
+        FileUtils.rm_r(tiff_temp_dir)
+      end
       
       #now delete the original
       logger.debug "Deleting uploaded file, now it's a usable tif"
@@ -583,14 +599,19 @@ class Map < ActiveRecord::Base
     end
     
     masked_src_filename = self.masked_src_filename
+    # mapwarper_maps/はS3なので、余計なファイルアクセスを発生させないようにするように改造
+    # temp_dir = Dir.mktmpdir()
+    temp_dir = Dir.mktmpdir()
+    masked_temp_src_filename = temp_dir + self.id.to_s + '_temp'
+
     if File.exists?(masked_src_filename)
       #deleting old masked image
       File.delete(masked_src_filename)
     end
     #copy over orig to a new unmasked file
-    FileUtils.copy(unwarped_filename, masked_src_filename)
-    
-    command = "#{GDAL_PATH}gdal_rasterize -i  -burn 17 -b 1 -b 2 -b 3 #{masking_file} -l #{layer} #{masked_src_filename}"
+    FileUtils.copy(unwarped_filename, masked_temp_src_filename)
+
+    command = "#{GDAL_PATH}gdal_rasterize -i  -burn 17 -b 1 -b 2 -b 3 #{masking_file} -l #{layer} #{masked_temp_src_filename}"
     r_stdout, r_stderr = Open3.capture3( command )
     logger.info command
     
@@ -605,6 +626,13 @@ class Map < ActiveRecord::Base
       r_out = "ERROR with gdal rasterise script: " + r_err + "<br /> You may want to try it again? <br />" + r_out
     else
       r_out = "Success! Map was cropped!"
+    end
+
+    # copy from temp
+    FileUtils.mv masked_temp_src_filename, masked_src_filename
+    # now delete the tempfile
+    if Dir.exists?(temp_dir)
+      FileUtils.rm_r(temp_dir)
     end
     
     self.mask_status = :masked
@@ -621,6 +649,9 @@ class Map < ActiveRecord::Base
 
   #Main warp method
   def warp!(resample_option, transform_option, use_mask="false")
+
+    require 'fileutils'
+
     prior_status = self.status
     #self.status = :warping
     save!
@@ -642,8 +673,12 @@ class Map < ActiveRecord::Base
     end
     
     dest_filename = self.warped_filename
-    temp_filename = self.temp_filename
-    
+    # mapwarper_maps/はS3なので、余計なファイルアクセスを発生させないようにするように改造
+    # temp_filename = self.tempfilename
+    temp_dir = Dir.mktmpdir()
+    temp_filename = temp_dir + self.id.to_s + '_temp'
+    temp_dest_filename = temp_dir + self.id.to_s + '_temp_dest'
+
     #delete existing temp images @map.delete_images
     if File.exists?(dest_filename)
       #logger.info "deleted warped file ahead of making new one"
@@ -671,7 +706,7 @@ class Map < ActiveRecord::Base
      
     memory_limit = APP_CONFIG["gdal_memory_limit"].blank? ? "" : "-wm #{APP_CONFIG['gdal_memory_limit']}"
   
-    command = "#{GDAL_PATH}gdalwarp #{memory_limit}  #{transform_option}  #{resample_option} -dstalpha #{mask_options} -s_srs 'EPSG:4326' #{temp_filename}.vrt #{dest_filename} -co TILED=YES -co COMPRESS=LZW"
+    command = "#{GDAL_PATH}gdalwarp #{memory_limit}  #{transform_option}  #{resample_option} -dstalpha #{mask_options} -s_srs 'EPSG:4326' #{temp_filename}.vrt #{temp_dest_filename} -co TILED=YES -co COMPRESS=LZW"
     logger.info command
    
     w_stdout, w_stderr = Open3.capture3( command )
@@ -688,7 +723,7 @@ class Map < ActiveRecord::Base
     warp_output = w_out
     
     # gdaladdo
-    command = "#{GDAL_PATH}gdaladdo -r average #{dest_filename} 2 4 8 16 32 64"
+    command = "#{GDAL_PATH}gdaladdo -r average #{temp_dest_filename} 2 4 8 16 32 64"
     o_stdout, o_stderr = Open3.capture3( command )
     logger.info command
     
@@ -702,6 +737,14 @@ class Map < ActiveRecord::Base
       o_out = "Okay, overview command ran fine! <div id='scriptout'>" + o_out +"</div>"
     end
     overview_output = o_out
+
+    # copy from temp
+    FileUtils.mv temp_dest_filename, dest_filename
+    
+    # now delete the tempfile
+    if Dir.exists?(temp_dir)
+      FileUtils.rm_r(temp_dir)
+    end
     
     if File.exists?(temp_filename + '.vrt')
       logger.info "deleted temp vrt file"
